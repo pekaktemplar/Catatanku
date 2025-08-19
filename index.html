@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notebook Minimalis</title>
+    <!-- 1. Memuat Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 2. Memuat library React dan ReactDOM -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- 3. Memuat Babel untuk menerjemahkan JSX di browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 4. Memuat Firebase SDK (versi modular) -->
+    <script type="module">
+        // Impor fungsi Firebase dan lampirkan ke objek window agar bisa diakses oleh skrip Babel
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        window.firebaseSDK = {
+            initializeApp,
+            getAuth,
+            onAuthStateChanged,
+            signInAnonymously,
+            getFirestore,
+            doc,
+            setDoc,
+            onSnapshot,
+            collection
+        };
+    </script>
+
+    <!-- 5. CSS kustom untuk memperbaiki tampilan editor teks -->
+    <style>
+        .note-editor ul {
+            list-style-type: disc !important;
+            padding-left: 2rem !important;
+        }
+        .note-editor ol {
+            list-style-type: decimal !important;
+            padding-left: 2rem !important;
+        }
+        .note-editor [style*="text-align: right"] {
+            text-align: right !important;
+        }
+        .note-editor [style*="text-align: center"] {
+            text-align: center !important;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        .rules-code {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 16px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            text-align: left;
+            line-height: 1.5;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Div ini adalah tempat aplikasi React akan ditampilkan -->
+    <div id="root"></div>
+
+    <!-- 6. Kode aplikasi React Anda (dengan JSX) -->
+    <script type="text/babel">
+        // Mengganti 'lucide-react' dengan komponen SVG inline
+        const Icon = ({ children, size = 24 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+        );
+        const ChevronLeft = ({ size }) => <Icon size={size}><polyline points="15 18 9 12 15 6"></polyline></Icon>;
+        const ChevronRight = ({ size }) => <Icon size={size}><polyline points="9 18 15 12 9 6"></polyline></Icon>;
+        const Plus = ({ size }) => <Icon size={size}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
+        const Trash2 = ({ size }) => <Icon size={size}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></Icon>;
+        const Edit = ({ size }) => <Icon size={size}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></Icon>;
+        const Save = ({ size }) => <Icon size={size}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></Icon>;
+        const X = ({ size }) => <Icon size={size}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></Icon>;
+        const Bold = ({ size }) => <Icon size={size}><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></Icon>;
+        const Italic = ({ size }) => <Icon size={size}><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></Icon>;
+        const Underline = ({ size }) => <Icon size={size}><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></Icon>;
+        const List = ({ size }) => <Icon size={size}><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></Icon>;
+        const ListOrdered = ({ size }) => <Icon size={size}><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></Icon>;
+        const AlignLeft = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></Icon>;
+        const AlignCenter = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></Icon>;
+        const AlignRight = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></Icon>;
+
+        // Menggunakan variabel global dari React dan ReactDOM
+        const { useState, useEffect, useRef } = React;
+
+        // --- KONFIGURASI FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAV9YFDuUGy9UQrKMjqaH16jzRQSjIA2jc",
+            authDomain: "mynotebook-6d1ac.firebaseapp.com",
+            projectId: "mynotebook-6d1ac",
+            storageBucket: "mynotebook-6d1ac.firebasestorage.app",
+            messagingSenderId: "652934797464",
+            appId: "1:652934797464:web:5a49a357a712e0f41dd8ed"
+        };
+        const appId = 'default-notebook-app';
+
+        // Helper Functions
+        const classNames = (...classes) => classes.filter(Boolean).join(' ');
+
+        const generateCalendar = (year, month) => {
+            const startDate = new Date(year, month, 1);
+            const endDate = new Date(year, month + 1, 0);
+            const daysInMonth = endDate.getDate();
+            const startDay = startDate.getDay();
+            const calendar = [];
+            let week = [];
+            for (let i = 0; i < startDay; i++) week.push(null);
+            for (let day = 1; day <= daysInMonth; day++) {
+                week.push(new Date(year, month, day));
+                if (week.length === 7) {
+                    calendar.push(week);
+                    week = [];
+                }
+            }
+            if (week.length > 0) {
+                while (week.length < 7) week.push(null);
+                calendar.push(week);
+            }
+            return calendar;
+        };
+
+        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+        // Editor Toolbar Component
+        const EditorToolbar = () => {
+            const handleCommand = (command, value = null) => {
+                document.execCommand(command, false, value);
+            };
+
+            return (
+                <div className="flex items-center flex-wrap gap-1 p-2 border border-gray-200 bg-gray-50 rounded-t-lg">
+                    <select onChange={(e) => handleCommand('fontName', e.target.value)} className="text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Arial">Arial</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                    <select onChange={(e) => handleCommand('fontSize', e.target.value)} className="text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
+                        <option value="3">Normal</option>
+                        <option value="5">Besar</option>
+                        <option value="2">Kecil</option>
+                        <option value="6">Judul</option>
+                    </select>
+                    <div className="flex items-center gap-1">
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('bold')} className="p-2 rounded hover:bg-gray-200"><Bold size={16}/></button>
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('italic')} className="p-2 rounded hover:bg-gray-200"><Italic size={16}/></button>
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('underline')} className="p-2 rounded hover:bg-gray-200"><Underline size={16}/></button>
+                    </div>
+                    <div className="relative w-8 h-8 flex items-center justify-center">
+                        <input type="color" onChange={(e) => handleCommand('foreColor', e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <div className="p-2 rounded hover:bg-gray-200 pointer-events-none font-bold" style={{ color: 'black' }}>A</div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('insertUnorderedList')} className="p-2 rounded hover:bg-gray-200"><List size={16}/></button>
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('insertOrderedList')} className="p-2 rounded hover:bg-gray-200"><ListOrdered size={16}/></button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('justifyLeft')} className="p-2 rounded hover:bg-gray-200"><AlignLeft size={16}/></button>
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('justifyCenter')} className="p-2 rounded hover:bg-gray-200"><AlignCenter size={16}/></button>
+                        <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('justifyRight')} className="p-2 rounded hover:bg-gray-200"><AlignRight size={16}/></button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Modal Component
+        const DateDetailModal = ({ selectedDate, visibleTodos, note, onAddTodo, onToggleTodo, onDeleteTodo, onSaveNote, onClose }) => {
+            if (!selectedDate) return null;
+            const [todoInput, setTodoInput] = useState('');
+            const [noteInput, setNoteInput] = useState(note);
+            const [isEditingNote, setIsEditingNote] = useState(false);
+            const modalRef = useRef();
+            const noteEditorRef = useRef();
+            
+            useEffect(() => {
+                setNoteInput(note);
+                setIsEditingNote(false);
+            }, [note, selectedDate]);
+
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (modalRef.current && !modalRef.current.contains(event.target)) onClose();
+                };
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => document.removeEventListener("mousedown", handleClickOutside);
+            }, [modalRef, onClose]);
+            
+            useEffect(() => {
+                if (isEditingNote && noteEditorRef.current) {
+                    noteEditorRef.current.innerHTML = noteInput;
+                }
+            }, [isEditingNote]);
+
+            const handleAddTodoSubmit = (e) => {
+                e.preventDefault();
+                if (todoInput.trim() === '') return;
+                onAddTodo(todoInput);
+                setTodoInput('');
+            };
+            
+            const handleSaveNote = () => {
+                onSaveNote(noteInput);
+                setIsEditingNote(false);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+                    <div ref={modalRef} className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+                        <header className="p-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+                            <h2 className="text-lg font-bold">{selectedDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X size={24} className="text-gray-600" /></button>
+                        </header>
+                        <div className="p-6 overflow-y-auto">
+                            <div className="mb-8">
+                                <h3 className="text-xl font-semibold mb-4 text-gray-700">Daftar Tugas</h3>
+                                <form onSubmit={handleAddTodoSubmit} className="flex items-center gap-2 mb-4">
+                                    <input type="text" value={todoInput} onChange={(e) => setTodoInput(e.target.value)} placeholder="Tambah tugas baru..." className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" />
+                                    <button type="submit" className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition-colors duration-200 shrink-0"><Plus size={24} /></button>
+                                </form>
+                                <ul className="space-y-2">
+                                    {visibleTodos.length > 0 ? (visibleTodos.map(todo => (
+                                        <li key={todo.id} className="flex items-center bg-gray-50 p-3 rounded-lg group">
+                                            <input type="checkbox" checked={todo.completed} onChange={() => onToggleTodo(todo.id, todo.originalDateKey)} className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3" />
+                                            <span className={classNames('flex-grow', todo.completed ? 'line-through text-gray-400' : '')}>{todo.text}</span>
+                                            <button onClick={() => onDeleteTodo(todo.id, todo.originalDateKey)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200"><Trash2 size={20} /></button>
+                                        </li>
+                                    ))) : (<p className="text-gray-400 italic">Tidak ada tugas.</p>)}
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-semibold mb-4 text-gray-700">Catatan</h3>
+                                {isEditingNote ? (
+                                    <div>
+                                        <EditorToolbar />
+                                        <div ref={noteEditorRef} contentEditable={true} onInput={(e) => setNoteInput(e.currentTarget.innerHTML)} className="note-editor w-full min-h-[200px] p-3 border border-gray-200 border-t-0 rounded-b-lg focus:outline-none prose max-w-none"></div>
+                                        <div className="flex justify-end gap-2 mt-2">
+                                            <button onClick={() => setIsEditingNote(false)} className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"><X size={20}/></button>
+                                            <button onClick={handleSaveNote} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"><Save size={20}/> Simpan</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <div onClick={() => setIsEditingNote(true)} className="note-editor prose max-w-none min-h-[120px] w-full p-3 bg-gray-50 rounded-lg cursor-pointer whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: noteInput.trim() ? noteInput : '<p class="text-gray-400 italic">Klik untuk menambah catatan...</p>' }}></div>
+                                        <button onClick={() => setIsEditingNote(true)} className="absolute top-2 right-2 p-2 bg-white rounded-full hover:bg-gray-100 transition shadow"><Edit size={20} className="text-gray-600"/></button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
+        function App() {
+            const [currentDate, setCurrentDate] = useState(new Date());
+            const [selectedDate, setSelectedDate] = useState(null);
+            const [entries, setEntries] = useState({});
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [visibleTodos, setVisibleTodos] = useState([]);
+            const [db, setDb] = useState(null);
+            const [userId, setUserId] = useState(null);
+            const [authError, setAuthError] = useState(null);
+            const [firestoreError, setFirestoreError] = useState(null);
+
+            // Inisialisasi Firebase dan otentikasi
+            useEffect(() => {
+                if (!window.firebaseSDK) {
+                    setAuthError("Gagal memuat library Firebase. Periksa koneksi internet Anda.");
+                    return;
+                }
+                
+                const { initializeApp, getAuth, onAuthStateChanged, signInAnonymously, getFirestore } = window.firebaseSDK;
+                
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    const firestore = getFirestore(app);
+                    
+                    setDb(firestore);
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            setAuthError(null);
+                            setUserId(user.uid);
+                        } else {
+                            try {
+                                await signInAnonymously(auth);
+                            } catch (error) {
+                                console.error("Gagal melakukan otentikasi:", error);
+                                if (error.code === 'auth/configuration-not-found') {
+                                    setAuthError("Error Konfigurasi: Metode login 'Anonymous' belum diaktifkan. Buka Firebase Console > Authentication > Sign-in method, lalu aktifkan provider Anonymous.");
+                                } else {
+                                    setAuthError(`Gagal melakukan otentikasi: ${error.message}`);
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error("Gagal inisialisasi Firebase:", error);
+                    setAuthError(`Gagal inisialisasi Firebase: ${error.message}. Pastikan konfigurasi Anda benar.`);
+                }
+            }, []);
+
+            // Mengambil data dari Firestore
+            useEffect(() => {
+                if (!userId || !db) return;
+                const { collection, onSnapshot } = window.firebaseSDK;
+                const entriesCol = collection(db, `artifacts/${appId}/users/${userId}/entries`);
+                
+                const unsubscribe = onSnapshot(entriesCol, 
+                    (snapshot) => {
+                        setFirestoreError(null); // Hapus error jika berhasil
+                        const newEntries = {};
+                        snapshot.forEach((doc) => {
+                            newEntries[doc.id] = doc.data();
+                        });
+                        setEntries(newEntries);
+                    },
+                    (error) => {
+                        console.error("Error mengambil data Firestore:", error);
+                        if (error.code === 'permission-denied') {
+                            const rules = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /artifacts/${appId}/users/{uid}/{document=**} {\n      allow read, write: if request.auth != null && request.auth.uid == uid;\n    }\n  }\n}`;
+                            setFirestoreError({
+                                title: "Akses Ditolak (Permission Denied)",
+                                message: "Aturan keamanan Firestore Anda belum diatur. Ini adalah langkah wajib untuk melindungi data Anda.",
+                                solution: "Buka Firebase Console > Firestore Database > Rules, ganti semua isinya dengan kode di bawah ini, lalu klik 'Publish'.",
+                                rules: rules
+                            });
+                        } else {
+                            setFirestoreError({ title: "Error Firestore", message: error.message });
+                        }
+                    }
+                );
+                return () => unsubscribe();
+            }, [userId, db]);
+
+            const getVisibleTodosForDate = (date, allEntries) => {
+                if (!date) return [];
+                const selectedDateKey = date.toISOString().split('T')[0];
+                let allVisibleTodos = [];
+                Object.keys(allEntries).sort().forEach(dateKey => {
+                    if (dateKey <= selectedDateKey) {
+                        const entry = allEntries[dateKey];
+                        const todos = entry.todos || [];
+                        if (dateKey === selectedDateKey) {
+                            allVisibleTodos.push(...todos.map(t => ({ ...t, originalDateKey: dateKey })));
+                        } else {
+                            const incompleteTodos = todos.filter(t => !t.completed);
+                            allVisibleTodos.push(...incompleteTodos.map(t => ({ ...t, originalDateKey: dateKey })));
+                        }
+                    }
+                });
+                return allVisibleTodos;
+            };
+
+            useEffect(() => {
+                if (selectedDate) {
+                    setVisibleTodos(getVisibleTodosForDate(selectedDate, entries));
+                }
+            }, [selectedDate, entries]);
+            
+            // Tampilkan pesan error jika ada
+            if (authError || firestoreError) {
+                const error = authError ? { title: "Error Otentikasi", message: authError } : firestoreError;
+                return (
+                    <div className="h-screen flex items-center justify-center bg-red-50 text-red-800 p-4 sm:p-8">
+                        <div className="text-center bg-white p-6 sm:p-10 rounded-lg shadow-lg max-w-2xl">
+                            <h1 className="text-xl sm:text-2xl font-bold mb-4">{error.title}</h1>
+                            <p className="text-sm sm:text-base mb-4">{error.message}</p>
+                            {error.solution && <p className="text-sm sm:text-base mb-4">{error.solution}</p>}
+                            {error.rules && <pre className="rules-code">{error.rules}</pre>}
+                        </div>
+                    </div>
+                );
+            }
+            
+            // Tampilkan loading jika belum terhubung
+            if (!userId) {
+                return (
+                     <div className="h-screen flex items-center justify-center bg-gray-50 text-gray-600">
+                        <p>Menghubungkan ke server...</p>
+                    </div>
+                )
+            }
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const calendar = generateCalendar(year, month);
+            const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
+            const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+            const handleDateClick = (date) => {
+                if (date) {
+                    setSelectedDate(date);
+                    setIsModalOpen(true);
+                }
+            };
+            const handleCloseModal = () => {
+                setIsModalOpen(false);
+                setSelectedDate(null);
+            };
+
+            const handleAddTodo = async (todoText) => {
+                if (!userId) return;
+                const { doc, setDoc } = window.firebaseSDK;
+                const dateKey = selectedDate.toISOString().split('T')[0];
+                const newTodo = { id: Date.now(), text: todoText, completed: false };
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, dateKey);
+                const currentEntry = entries[dateKey] || { todos: [], note: '' };
+                await setDoc(docRef, { ...currentEntry, todos: [...currentEntry.todos, newTodo] }, { merge: true });
+            };
+
+            const handleToggleTodo = async (todoId, originalDateKey) => {
+                if (!userId) return;
+                const { doc, setDoc } = window.firebaseSDK;
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, originalDateKey);
+                const entryToUpdate = { ...entries[originalDateKey] };
+                entryToUpdate.todos = entryToUpdate.todos.map(todo => 
+                    todo.id === todoId ? { ...todo, completed: !todo.completed } : todo
+                );
+                await setDoc(docRef, entryToUpdate);
+            };
+
+            const handleDeleteTodo = async (todoId, originalDateKey) => {
+                if (!userId) return;
+                const { doc, setDoc } = window.firebaseSDK;
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, originalDateKey);
+                const entryToUpdate = { ...entries[originalDateKey] };
+                entryToUpdate.todos = entryToUpdate.todos.filter(todo => todo.id !== todoId);
+                await setDoc(docRef, entryToUpdate);
+            };
+
+            const handleSaveNote = async (noteText) => {
+                if (!userId) return;
+                const { doc, setDoc } = window.firebaseSDK;
+                const dateKey = selectedDate.toISOString().split('T')[0];
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, dateKey);
+                const currentEntry = entries[dateKey] || { todos: [], note: '' };
+                await setDoc(docRef, { ...currentEntry, note: noteText }, { merge: true });
+            };
+
+            return (
+                <React.Fragment>
+                    <div className="h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
+                        <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col flex-grow">
+                            <header className="flex items-center justify-between mb-6">
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{monthNames[month]} <span className="text-gray-400">{year}</span></h1>
+                                <div className="flex items-center space-x-2">
+                                    <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-200 transition-colors duration-200"><ChevronLeft size={24} /></button>
+                                    <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-200 transition-colors duration-200"><ChevronRight size={24} /></button>
+                                </div>
+                            </header>
+                            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-500 mb-2">
+                                {dayNames.map(day => <div key={day}>{day}</div>)}
+                            </div>
+                            <div className="grid grid-cols-7 grid-rows-6 gap-2 flex-grow">
+                                {calendar.flat().map((date, index) => {
+                                    const isToday = date && date.toDateString() === new Date().toDateString();
+                                    const dateKey = date ? date.toISOString().split('T')[0] : '';
+                                    const entry = entries[dateKey] || { todos: [], note: '' };
+                                    const hasEntryOnDate = entry.todos.length > 0 || (entry.note && entry.note.replace(/<[^>]*>?/gm, '').trim() !== '');
+                                    return (
+                                        <div key={index} onClick={() => handleDateClick(date)} className={classNames('p-2 flex items-start justify-start rounded-lg cursor-pointer transition-colors duration-200 relative border', date ? 'hover:bg-blue-50 border-gray-200' : 'bg-transparent border-transparent', isToday ? 'bg-yellow-100 font-bold' : 'bg-white')}>
+                                            {date && <React.Fragment><span>{date.getDate()}</span>{hasEntryOnDate && <div className="absolute bottom-2 right-2 h-2 w-2 bg-green-500 rounded-full"></div>}</React.Fragment>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        {isModalOpen && <DateDetailModal selectedDate={selectedDate} visibleTodos={visibleTodos} note={(entries[selectedDate.toISOString().split('T')[0]] || {}).note || ''} onAddTodo={handleAddTodo} onToggleTodo={handleToggleTodo} onDeleteTodo={handleDeleteTodo} onSaveNote={handleSaveNote} onClose={handleCloseModal} />}
+                    </div>
+                </React.Fragment>
+            );
+        }
+
+        // 7. Merender komponen App ke dalam div#root
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
