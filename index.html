@@ -16,14 +16,16 @@
     <script type="module">
         // Impor fungsi Firebase dan lampirkan ke objek window agar bisa diakses oleh skrip Babel
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
         window.firebaseSDK = {
             initializeApp,
             getAuth,
             onAuthStateChanged,
-            signInAnonymously,
+            signInWithPopup,
+            GoogleAuthProvider,
+            signOut,
             getFirestore,
             doc,
             setDoc,
@@ -91,11 +93,10 @@
         const AlignLeft = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></Icon>;
         const AlignCenter = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="3" y2="18"></line></Icon>;
         const AlignRight = ({ size }) => <Icon size={size}><line x1="21" y1="10" x2="7" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="21" y1="18" x2="7" y2="18"></line></Icon>;
+        const GoogleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C41.38,36.131,44,30.607,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>;
 
-        // Menggunakan variabel global dari React dan ReactDOM
         const { useState, useEffect, useRef } = React;
 
-        // --- KONFIGURASI FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyAV9YFDuUGy9UQrKMjqaH16jzRQSjIA2jc",
             authDomain: "mynotebook-6d1ac.firebaseapp.com",
@@ -106,7 +107,6 @@
         };
         const appId = 'default-notebook-app';
 
-        // Helper Functions
         const classNames = (...classes) => classes.filter(Boolean).join(' ');
 
         const generateCalendar = (year, month) => {
@@ -119,10 +119,7 @@
             for (let i = 0; i < startDay; i++) week.push(null);
             for (let day = 1; day <= daysInMonth; day++) {
                 week.push(new Date(year, month, day));
-                if (week.length === 7) {
-                    calendar.push(week);
-                    week = [];
-                }
+                if (week.length === 7) { calendar.push(week); week = []; }
             }
             if (week.length > 0) {
                 while (week.length < 7) week.push(null);
@@ -134,26 +131,15 @@
         const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
         const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-        // Editor Toolbar Component
         const EditorToolbar = () => {
-            const handleCommand = (command, value = null) => {
-                document.execCommand(command, false, value);
-            };
-
+            const handleCommand = (command, value = null) => { document.execCommand(command, false, value); };
             return (
                 <div className="flex items-center flex-wrap gap-1 p-2 border border-gray-200 bg-gray-50 rounded-t-lg">
                     <select onChange={(e) => handleCommand('fontName', e.target.value)} className="text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
-                        <option value="Arial">Arial</option>
-                        <option value="Verdana">Verdana</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Courier New">Courier New</option>
+                        <option value="Arial">Arial</option><option value="Verdana">Verdana</option><option value="Times New Roman">Times New Roman</option><option value="Georgia">Georgia</option><option value="Courier New">Courier New</option>
                     </select>
                     <select onChange={(e) => handleCommand('fontSize', e.target.value)} className="text-sm border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500">
-                        <option value="3">Normal</option>
-                        <option value="5">Besar</option>
-                        <option value="2">Kecil</option>
-                        <option value="6">Judul</option>
+                        <option value="3">Normal</option><option value="5">Besar</option><option value="2">Kecil</option><option value="6">Judul</option>
                     </select>
                     <div className="flex items-center gap-1">
                         <button onMouseDown={e => e.preventDefault()} onClick={() => handleCommand('bold')} className="p-2 rounded hover:bg-gray-200"><Bold size={16}/></button>
@@ -177,7 +163,6 @@
             );
         };
 
-        // Modal Component
         const DateDetailModal = ({ selectedDate, visibleTodos, note, onAddTodo, onToggleTodo, onDeleteTodo, onSaveNote, onClose }) => {
             if (!selectedDate) return null;
             const [todoInput, setTodoInput] = useState('');
@@ -186,36 +171,15 @@
             const modalRef = useRef();
             const noteEditorRef = useRef();
             
+            useEffect(() => { setNoteInput(note); setIsEditingNote(false); }, [note, selectedDate]);
             useEffect(() => {
-                setNoteInput(note);
-                setIsEditingNote(false);
-            }, [note, selectedDate]);
-
-            useEffect(() => {
-                const handleClickOutside = (event) => {
-                    if (modalRef.current && !modalRef.current.contains(event.target)) onClose();
-                };
+                const handleClickOutside = (event) => { if (modalRef.current && !modalRef.current.contains(event.target)) onClose(); };
                 document.addEventListener("mousedown", handleClickOutside);
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, [modalRef, onClose]);
-            
-            useEffect(() => {
-                if (isEditingNote && noteEditorRef.current) {
-                    noteEditorRef.current.innerHTML = noteInput;
-                }
-            }, [isEditingNote]);
-
-            const handleAddTodoSubmit = (e) => {
-                e.preventDefault();
-                if (todoInput.trim() === '') return;
-                onAddTodo(todoInput);
-                setTodoInput('');
-            };
-            
-            const handleSaveNote = () => {
-                onSaveNote(noteInput);
-                setIsEditingNote(false);
-            };
+            useEffect(() => { if (isEditingNote && noteEditorRef.current) { noteEditorRef.current.innerHTML = noteInput; } }, [isEditingNote]);
+            const handleAddTodoSubmit = (e) => { e.preventDefault(); if (todoInput.trim() === '') return; onAddTodo(todoInput); setTodoInput(''); };
+            const handleSaveNote = () => { onSaveNote(noteInput); setIsEditingNote(false); };
 
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -265,70 +229,73 @@
             );
         };
 
-        // Main App Component
+        function LoginScreen({ onLogin, authError }) {
+            return (
+                <div className="h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+                    <div className="text-center w-full max-w-md">
+                        <h1 className="text-4xl font-bold text-gray-800 mb-2">Selamat Datang</h1>
+                        <p className="text-gray-600 mb-8">Masuk untuk menyimpan dan menyinkronkan catatan Anda.</p>
+                        <button onClick={onLogin} className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 font-semibold py-3 px-4 border border-gray-300 rounded-lg shadow-sm hover:bg-gray-100 transition-colors duration-200">
+                            <GoogleIcon />
+                            Masuk dengan Google
+                        </button>
+                        {authError && <p className="mt-4 text-sm text-red-600 bg-red-100 p-3 rounded-md">{authError}</p>}
+                    </div>
+                </div>
+            );
+        }
+
         function App() {
+            const [user, setUser] = useState(null);
+            const [auth, setAuth] = useState(null);
+            const [db, setDb] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [authError, setAuthError] = useState(null);
+            const [firestoreError, setFirestoreError] = useState(null);
+
             const [currentDate, setCurrentDate] = useState(new Date());
             const [selectedDate, setSelectedDate] = useState(null);
             const [entries, setEntries] = useState({});
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [visibleTodos, setVisibleTodos] = useState([]);
-            const [db, setDb] = useState(null);
-            const [userId, setUserId] = useState(null);
-            const [authError, setAuthError] = useState(null);
-            const [firestoreError, setFirestoreError] = useState(null);
 
-            // Inisialisasi Firebase dan otentikasi
             useEffect(() => {
                 if (!window.firebaseSDK) {
-                    setAuthError("Gagal memuat library Firebase. Periksa koneksi internet Anda.");
+                    setAuthError("Gagal memuat library Firebase.");
+                    setLoading(false);
                     return;
                 }
                 
-                const { initializeApp, getAuth, onAuthStateChanged, signInAnonymously, getFirestore } = window.firebaseSDK;
+                const { initializeApp, getAuth, onAuthStateChanged, getFirestore } = window.firebaseSDK;
                 
                 try {
                     const app = initializeApp(firebaseConfig);
-                    const auth = getAuth(app);
-                    const firestore = getFirestore(app);
-                    
-                    setDb(firestore);
+                    const authInstance = getAuth(app);
+                    const firestoreInstance = getFirestore(app);
+                    setAuth(authInstance);
+                    setDb(firestoreInstance);
 
-                    onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            setAuthError(null);
-                            setUserId(user.uid);
-                        } else {
-                            try {
-                                await signInAnonymously(auth);
-                            } catch (error) {
-                                console.error("Gagal melakukan otentikasi:", error);
-                                if (error.code === 'auth/configuration-not-found') {
-                                    setAuthError("Error Konfigurasi: Metode login 'Anonymous' belum diaktifkan. Buka Firebase Console > Authentication > Sign-in method, lalu aktifkan provider Anonymous.");
-                                } else {
-                                    setAuthError(`Gagal melakukan otentikasi: ${error.message}`);
-                                }
-                            }
-                        }
+                    onAuthStateChanged(authInstance, (user) => {
+                        setUser(user);
+                        setLoading(false);
                     });
                 } catch (error) {
                     console.error("Gagal inisialisasi Firebase:", error);
-                    setAuthError(`Gagal inisialisasi Firebase: ${error.message}. Pastikan konfigurasi Anda benar.`);
+                    setAuthError(`Gagal inisialisasi Firebase: ${error.message}.`);
+                    setLoading(false);
                 }
             }, []);
 
-            // Mengambil data dari Firestore
             useEffect(() => {
-                if (!userId || !db) return;
+                if (!user || !db) return;
                 const { collection, onSnapshot } = window.firebaseSDK;
-                const entriesCol = collection(db, `artifacts/${appId}/users/${userId}/entries`);
+                const entriesCol = collection(db, `artifacts/${appId}/users/${user.uid}/entries`);
                 
                 const unsubscribe = onSnapshot(entriesCol, 
                     (snapshot) => {
-                        setFirestoreError(null); // Hapus error jika berhasil
+                        setFirestoreError(null);
                         const newEntries = {};
-                        snapshot.forEach((doc) => {
-                            newEntries[doc.id] = doc.data();
-                        });
+                        snapshot.forEach((doc) => { newEntries[doc.id] = doc.data(); });
                         setEntries(newEntries);
                     },
                     (error) => {
@@ -347,7 +314,34 @@
                     }
                 );
                 return () => unsubscribe();
-            }, [userId, db]);
+            }, [user, db]);
+
+            const handleGoogleLogin = async () => {
+                const { GoogleAuthProvider, signInWithPopup } = window.firebaseSDK;
+                const provider = new GoogleAuthProvider();
+                try {
+                    setAuthError(null);
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Gagal login dengan Google:", error);
+                     if (error.code === 'auth/popup-closed-by-user') {
+                        setAuthError("Jendela login ditutup sebelum selesai. Silakan coba lagi.");
+                    } else if (error.code === 'auth/cancelled-popup-request') {
+                        // Do nothing, another popup was opened.
+                    } else {
+                        setAuthError(`Gagal login: ${error.message}`);
+                    }
+                }
+            };
+
+            const handleLogout = async () => {
+                const { signOut } = window.firebaseSDK;
+                try {
+                    await signOut(auth);
+                } catch (error) {
+                    console.error("Gagal logout:", error);
+                }
+            };
 
             const getVisibleTodosForDate = (date, allEntries) => {
                 if (!date) return [];
@@ -374,28 +368,25 @@
                 }
             }, [selectedDate, entries]);
             
-            // Tampilkan pesan error jika ada
-            if (authError || firestoreError) {
-                const error = authError ? { title: "Error Otentikasi", message: authError } : firestoreError;
+            if (loading) {
+                return <div className="h-screen flex items-center justify-center bg-gray-50 text-gray-600"><p>Memuat aplikasi...</p></div>;
+            }
+
+            if (!user) {
+                return <LoginScreen onLogin={handleGoogleLogin} authError={authError} />;
+            }
+            
+            if (firestoreError) {
                 return (
                     <div className="h-screen flex items-center justify-center bg-red-50 text-red-800 p-4 sm:p-8">
                         <div className="text-center bg-white p-6 sm:p-10 rounded-lg shadow-lg max-w-2xl">
-                            <h1 className="text-xl sm:text-2xl font-bold mb-4">{error.title}</h1>
-                            <p className="text-sm sm:text-base mb-4">{error.message}</p>
-                            {error.solution && <p className="text-sm sm:text-base mb-4">{error.solution}</p>}
-                            {error.rules && <pre className="rules-code">{error.rules}</pre>}
+                            <h1 className="text-xl sm:text-2xl font-bold mb-4">{firestoreError.title}</h1>
+                            <p className="text-sm sm:text-base mb-4">{firestoreError.message}</p>
+                            {firestoreError.solution && <p className="text-sm sm:text-base mb-4">{firestoreError.solution}</p>}
+                            {firestoreError.rules && <pre className="rules-code">{firestoreError.rules}</pre>}
                         </div>
                     </div>
                 );
-            }
-            
-            // Tampilkan loading jika belum terhubung
-            if (!userId) {
-                return (
-                     <div className="h-screen flex items-center justify-center bg-gray-50 text-gray-600">
-                        <p>Menghubungkan ke server...</p>
-                    </div>
-                )
             }
 
             const year = currentDate.getFullYear();
@@ -403,52 +394,42 @@
             const calendar = generateCalendar(year, month);
             const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
             const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-            const handleDateClick = (date) => {
-                if (date) {
-                    setSelectedDate(date);
-                    setIsModalOpen(true);
-                }
-            };
-            const handleCloseModal = () => {
-                setIsModalOpen(false);
-                setSelectedDate(null);
-            };
+            const handleDateClick = (date) => { if (date) { setSelectedDate(date); setIsModalOpen(true); } };
+            const handleCloseModal = () => { setIsModalOpen(false); setSelectedDate(null); };
 
             const handleAddTodo = async (todoText) => {
-                if (!userId) return;
+                if (!user) return;
                 const { doc, setDoc } = window.firebaseSDK;
                 const dateKey = selectedDate.toISOString().split('T')[0];
                 const newTodo = { id: Date.now(), text: todoText, completed: false };
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, dateKey);
+                const docRef = doc(db, `artifacts/${appId}/users/${user.uid}/entries`, dateKey);
                 const currentEntry = entries[dateKey] || { todos: [], note: '' };
                 await setDoc(docRef, { ...currentEntry, todos: [...currentEntry.todos, newTodo] }, { merge: true });
             };
 
             const handleToggleTodo = async (todoId, originalDateKey) => {
-                if (!userId) return;
+                if (!user) return;
                 const { doc, setDoc } = window.firebaseSDK;
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, originalDateKey);
+                const docRef = doc(db, `artifacts/${appId}/users/${user.uid}/entries`, originalDateKey);
                 const entryToUpdate = { ...entries[originalDateKey] };
-                entryToUpdate.todos = entryToUpdate.todos.map(todo => 
-                    todo.id === todoId ? { ...todo, completed: !todo.completed } : todo
-                );
+                entryToUpdate.todos = entryToUpdate.todos.map(todo => todo.id === todoId ? { ...todo, completed: !todo.completed } : todo);
                 await setDoc(docRef, entryToUpdate);
             };
 
             const handleDeleteTodo = async (todoId, originalDateKey) => {
-                if (!userId) return;
+                if (!user) return;
                 const { doc, setDoc } = window.firebaseSDK;
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, originalDateKey);
+                const docRef = doc(db, `artifacts/${appId}/users/${user.uid}/entries`, originalDateKey);
                 const entryToUpdate = { ...entries[originalDateKey] };
                 entryToUpdate.todos = entryToUpdate.todos.filter(todo => todo.id !== todoId);
                 await setDoc(docRef, entryToUpdate);
             };
 
             const handleSaveNote = async (noteText) => {
-                if (!userId) return;
+                if (!user) return;
                 const { doc, setDoc } = window.firebaseSDK;
                 const dateKey = selectedDate.toISOString().split('T')[0];
-                const docRef = doc(db, `artifacts/${appId}/users/${userId}/entries`, dateKey);
+                const docRef = doc(db, `artifacts/${appId}/users/${user.uid}/entries`, dateKey);
                 const currentEntry = entries[dateKey] || { todos: [], note: '' };
                 await setDoc(docRef, { ...currentEntry, note: noteText }, { merge: true });
             };
@@ -462,6 +443,10 @@
                                 <div className="flex items-center space-x-2">
                                     <button onClick={handlePrevMonth} className="p-2 rounded-full hover:bg-gray-200 transition-colors duration-200"><ChevronLeft size={24} /></button>
                                     <button onClick={handleNextMonth} className="p-2 rounded-full hover:bg-gray-200 transition-colors duration-200"><ChevronRight size={24} /></button>
+                                    <div className="flex items-center gap-2">
+                                        <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full" />
+                                        <button onClick={handleLogout} className="text-sm font-semibold text-gray-600 hover:text-red-500 transition-colors">Logout</button>
+                                    </div>
                                 </div>
                             </header>
                             <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-500 mb-2">
